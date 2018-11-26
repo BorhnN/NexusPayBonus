@@ -8,6 +8,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.view.Window;
 import android.widget.TextView;
@@ -24,12 +25,15 @@ public class MainActivity extends Activity {
 
     private static final int READ_SMS = 5556;
     private static final String TAG = MainActivity.class.getSimpleName();
+    Handler handler;
     private ArrayList<BonusData> allBonuses;
     private PackageManager pm;
+    private TextView textView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        requestWindowFeature(Window.FEATURE_NO_TITLE);
         setContentView(R.layout.activity_main);
         ActionBar actionBar = getActionBar();
         if (actionBar != null) {
@@ -39,10 +43,32 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.setStatusBarColor(getResources().getColor(android.R.color.white));
         }
-        TextView textView = findViewById(R.id.text);
+        textView = findViewById(R.id.text);
         allBonuses = new ArrayList<>();
         pm = this.getPackageManager();
-        readSms();
+        handler = new Handler();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        Thread thread = new Thread() {
+            @Override
+            public void run() {
+                readSms();
+                handler.post(new Runnable() {
+                    @Override
+                    public void run() {
+                        showCounter();
+                    }
+                });
+            }
+
+        };
+        thread.start();
+    }
+
+    private void showCounter() {
         float total = 0;
 
         for (BonusData bonus : allBonuses) {
@@ -51,7 +77,6 @@ public class MainActivity extends Activity {
             }
         }
         textView.setText("৳ " + total);
-
     }
 
 

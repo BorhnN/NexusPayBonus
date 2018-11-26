@@ -5,11 +5,15 @@ import android.app.Activity;
 import android.database.Cursor;
 import android.net.Uri;
 import android.os.Bundle;
+import android.support.annotation.NonNull;
 import android.util.Log;
 import android.widget.TextView;
 
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Date;
+import java.util.Calendar;
+import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -20,7 +24,6 @@ public class MainActivity extends Activity {
 
     private static final int READ_SMS = 5556;
     private static final String TAG = MainActivity.class.getSimpleName();
-    private TextViewHandler textViewHandler;
     private ArrayList<BonusData> allBonuses;
 
     @Override
@@ -29,13 +32,14 @@ public class MainActivity extends Activity {
         setContentView(R.layout.activity_main);
 
         TextView textView = findViewById(R.id.text);
-        textViewHandler = new TextViewHandler(textView);
         allBonuses = new ArrayList<>();
         readSms();
         float total = 0;
 
         for (BonusData bonus : allBonuses) {
-            total += bonus.bonusAmount;
+            if (bonus.getIssueDate().get(Calendar.MONTH) == Calendar.getInstance().get(Calendar.MONTH)) {
+                total += bonus.bonusAmount;
+            }
         }
         textView.setText("৳ " + total);
     }
@@ -48,12 +52,12 @@ public class MainActivity extends Activity {
             Pattern pattern = Pattern.compile("address:16216 .* NexusPay Loyalty Card (\\**\\d*).* credited\\(Cash Back-Purchase\\) by BDT (\\d*.\\d{2}) on (\\d*-\\d*-\\d* \\d*:\\d*:\\d* [AP]M)\\.");
             if (cursor.moveToFirst()) { // must check the result to prevent exception
                 do {
-                    String msgData = "";
+                    StringBuilder msgData = new StringBuilder();
                     for (int idx = 0; idx < cursor.getColumnCount(); idx++) {
-                        msgData += " " + cursor.getColumnName(idx) + ":" + cursor.getString(idx);
+                        msgData.append(" ").append(cursor.getColumnName(idx)).append(":").append(cursor.getString(idx));
                     }
 
-                    Matcher matcher = pattern.matcher(msgData);
+                    Matcher matcher = pattern.matcher(msgData.toString());
                     if (matcher.find()) {
                         BonusData bonusData = new BonusData();
                         bonusData.setCardNumber(matcher.group(1));
@@ -64,59 +68,49 @@ public class MainActivity extends Activity {
                     }
 
                 } while (cursor.moveToNext());
-            } else {
-                // empty box, no SMS
             }
+            cursor.close();
         } else {
             EasyPermissions.requestPermissions(this, "", READ_SMS, perms);
-        }
-    }
-
-    private class TextViewHandler {
-        private final TextView textView;
-
-        public TextViewHandler(TextView textView) {
-            this.textView = textView;
-        }
-
-        public void addText(String s) {
-            textView.setText(textView.getText() + "\n" + s);
         }
     }
 
     private class BonusData {
         String cardNumber;
         float bonusAmount;
-        Date issueDate;
+        Calendar issueDate;
 
-        public BonusData(String cardNumber, float bonusAmount, Date issueDate) {
-            this.cardNumber = cardNumber;
-            this.bonusAmount = bonusAmount;
-            this.issueDate = issueDate;
+        BonusData() {
         }
 
-        public BonusData(String cardNumber, String bonusAmount, String issueDate) {
-
-        }
-
-        public BonusData() {
-        }
-
-        public void setCardNumber(String cardNumber) {
+        void setCardNumber(String cardNumber) {
             this.cardNumber = cardNumber;
         }
 
-        public void setBonusAmount(float bonusAmount) {
+        void setBonusAmount(float bonusAmount) {
             this.bonusAmount = bonusAmount;
         }
 
-        public void setIssueDate(String issueDate) {
+        void setIssueDate(String issueDate) {
+            SimpleDateFormat parser = new SimpleDateFormat("dd-MM-yyyy hh:mm:ss aa", Locale.getDefault());
+            Calendar date = Calendar.getInstance();
+            try {
+                date.setTime(parser.parse(issueDate));
+                setIssueDate(date);
+            } catch (ParseException e) {
+                e.printStackTrace();
+            }
         }
 
-        public void setIssueDate(Date issueDate) {
+        Calendar getIssueDate() {
+            return issueDate;
+        }
+
+        void setIssueDate(Calendar issueDate) {
             this.issueDate = issueDate;
         }
 
+        @NonNull
         @Override
         public String toString() {
             return "BonusData{" +

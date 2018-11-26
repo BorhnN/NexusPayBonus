@@ -2,10 +2,11 @@ package me.borhnn.bonusfornexuspay;
 
 import android.Manifest;
 import android.app.Activity;
+import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.net.Uri;
+import android.os.Build;
 import android.os.Bundle;
-import android.support.annotation.NonNull;
 import android.util.Log;
 import android.widget.TextView;
 
@@ -17,22 +18,22 @@ import java.util.Locale;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import pub.devrel.easypermissions.AfterPermissionGranted;
-import pub.devrel.easypermissions.EasyPermissions;
-
 public class MainActivity extends Activity {
 
     private static final int READ_SMS = 5556;
     private static final String TAG = MainActivity.class.getSimpleName();
+    private String PACKAGE_NAME = "";
     private ArrayList<BonusData> allBonuses;
+    private PackageManager packageManager;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         TextView textView = findViewById(R.id.text);
         allBonuses = new ArrayList<>();
+        PACKAGE_NAME = getApplicationContext().getPackageName();
+        packageManager = this.getPackageManager();
         readSms();
         float total = 0;
 
@@ -42,12 +43,14 @@ public class MainActivity extends Activity {
             }
         }
         textView.setText("৳ " + total);
+
     }
 
-    @AfterPermissionGranted(READ_SMS)
+
     private void readSms() {
         String perms = Manifest.permission.READ_SMS;
-        if (EasyPermissions.hasPermissions(this, perms)) {
+        if (packageManager.checkPermission(perms, PACKAGE_NAME) == PackageManager.PERMISSION_GRANTED) {
+            Log.d(TAG, "readSms: perm granted running");
             Cursor cursor = getContentResolver().query(Uri.parse("content://sms/inbox"), null, null, null, null);
             Pattern pattern = Pattern.compile("address:16216 .* NexusPay Loyalty Card (\\**\\d*).* credited\\(Cash Back-Purchase\\) by BDT (\\d*.\\d{2}) on (\\d*-\\d*-\\d* \\d*:\\d*:\\d* [AP]M)\\.");
             if (cursor.moveToFirst()) { // must check the result to prevent exception
@@ -63,7 +66,7 @@ public class MainActivity extends Activity {
                         bonusData.setCardNumber(matcher.group(1));
                         bonusData.setBonusAmount(Float.parseFloat(matcher.group(2)));
                         bonusData.setIssueDate(matcher.group(3));
-                        Log.d(TAG, "readSms: " + bonusData);
+//                        Log.d(TAG, "readSms: " + bonusData);
                         allBonuses.add(bonusData);
                     }
 
@@ -71,7 +74,17 @@ public class MainActivity extends Activity {
             }
             cursor.close();
         } else {
-            EasyPermissions.requestPermissions(this, "", READ_SMS, perms);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                Log.d(TAG, "readSms: No perm requesting");
+                this.requestPermissions(new String[]{perms}, READ_SMS);
+            }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+        if (grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+            readSms();
         }
     }
 
@@ -110,7 +123,6 @@ public class MainActivity extends Activity {
             this.issueDate = issueDate;
         }
 
-        @NonNull
         @Override
         public String toString() {
             return "BonusData{" +

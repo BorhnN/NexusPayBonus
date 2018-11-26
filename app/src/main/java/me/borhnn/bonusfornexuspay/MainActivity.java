@@ -1,6 +1,7 @@
 package me.borhnn.bonusfornexuspay;
 
 import android.Manifest;
+import android.app.ActionBar;
 import android.app.Activity;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -22,18 +23,20 @@ public class MainActivity extends Activity {
 
     private static final int READ_SMS = 5556;
     private static final String TAG = MainActivity.class.getSimpleName();
-    private String PACKAGE_NAME = "";
     private ArrayList<BonusData> allBonuses;
-    private PackageManager packageManager;
+    private PackageManager pm;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        ActionBar actionBar = getActionBar();
+        if (actionBar != null) {
+            actionBar.hide();
+        }
         TextView textView = findViewById(R.id.text);
         allBonuses = new ArrayList<>();
-        PACKAGE_NAME = getApplicationContext().getPackageName();
-        packageManager = this.getPackageManager();
+        pm = this.getPackageManager();
         readSms();
         float total = 0;
 
@@ -49,7 +52,7 @@ public class MainActivity extends Activity {
 
     private void readSms() {
         String perms = Manifest.permission.READ_SMS;
-        if (packageManager.checkPermission(perms, PACKAGE_NAME) == PackageManager.PERMISSION_GRANTED) {
+        if (pm.checkPermission(perms, BuildConfig.APPLICATION_ID) == PackageManager.PERMISSION_GRANTED) {
             Log.d(TAG, "readSms: perm granted running");
             Cursor cursor = getContentResolver().query(Uri.parse("content://sms/inbox"), null, null, null, null);
             Pattern pattern = Pattern.compile("address:16216 .* NexusPay Loyalty Card (\\**\\d*).* credited\\(Cash Back-Purchase\\) by BDT (\\d*.\\d{2}) on (\\d*-\\d*-\\d* \\d*:\\d*:\\d* [AP]M)\\.");

@@ -1,6 +1,7 @@
 package me.borhnn.bonusfornexuspay;
 
 import android.Manifest;
+import android.annotation.SuppressLint;
 import android.app.ActionBar;
 import android.app.Activity;
 import android.content.pm.PackageManager;
@@ -23,12 +24,12 @@ import java.util.regex.Pattern;
 
 public class MainActivity extends Activity {
 
+    public static final double BONUS_TO_MONEY = 10.0 / 3;
     private static final int READ_SMS = 5556;
     private static final String TAG = MainActivity.class.getSimpleName();
     Handler handler;
     private ArrayList<BonusData> allBonuses;
     private PackageManager pm;
-    private TextView textView;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -43,7 +44,6 @@ public class MainActivity extends Activity {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             window.setStatusBarColor(getResources().getColor(android.R.color.white));
         }
-        textView = findViewById(R.id.text);
         allBonuses = new ArrayList<>();
         pm = this.getPackageManager();
         handler = new Handler();
@@ -68,15 +68,29 @@ public class MainActivity extends Activity {
         thread.start();
     }
 
+    @SuppressLint("SetTextI18n")
     private void showCounter() {
-        float total = 0;
+        float totalMonth = 0;
+        float totalDay = 0;
 
         for (BonusData bonus : allBonuses) {
             if (bonus.getIssueDate().get(Calendar.MONTH) == Calendar.getInstance().get(Calendar.MONTH)) {
-                total += bonus.bonusAmount;
+                totalMonth += bonus.bonusAmount;
+            }
+            if (bonus.getIssueDate().get(Calendar.DATE) == Calendar.getInstance().get(Calendar.DATE)) {
+                totalDay = bonus.bonusAmount;
             }
         }
-        textView.setText("৳ " + total);
+        TextView textBonusMonth = findViewById(R.id.text_bonus_month);
+        TextView textBonusDay = findViewById(R.id.text_bonus_day);
+        TextView textMoneyMonth = findViewById(R.id.text_money_month);
+        TextView textMoneyDay = findViewById(R.id.text_money_day);
+        float bonusDayLeft = 200 - totalDay;
+        float bonusMonthLeft = 500 - totalMonth;
+        textBonusMonth.setText("এই মাসে বোনাস পেয়েছেন: ৳ " + totalMonth);
+        textBonusDay.setText("আজকে বোনাস পেয়েছেন: ৳ " + totalDay);
+        textMoneyDay.setText("আজকে বোনাসের জন্য খরচ সর্বোচ্চ: ৳ " + (Math.min(bonusDayLeft, bonusMonthLeft) * BONUS_TO_MONEY));
+        textMoneyMonth.setText("এই মাসে বোনাসের জন্য খরচ সর্বোচ্চ: ৳ " + (bonusMonthLeft * BONUS_TO_MONEY));
     }
 
 
@@ -86,26 +100,28 @@ public class MainActivity extends Activity {
             Log.d(TAG, "readSms: perm granted running");
             Cursor cursor = getContentResolver().query(Uri.parse("content://sms/inbox"), null, null, null, null);
             Pattern pattern = Pattern.compile("address:16216 .* NexusPay Loyalty Card (\\**\\d*).* credited\\(Cash Back-Purchase\\) by BDT (\\d*.\\d{2}) on (\\d*-\\d*-\\d* \\d*:\\d*:\\d* [AP]M)\\.");
-            if (cursor.moveToFirst()) { // must check the result to prevent exception
-                do {
-                    StringBuilder msgData = new StringBuilder();
-                    for (int idx = 0; idx < cursor.getColumnCount(); idx++) {
-                        msgData.append(" ").append(cursor.getColumnName(idx)).append(":").append(cursor.getString(idx));
-                    }
+            if (cursor != null) {
+                if (cursor.moveToFirst()) { // must check the result to prevent exception
+                    do {
+                        StringBuilder msgData = new StringBuilder();
+                        for (int idx = 0; idx < cursor.getColumnCount(); idx++) {
+                            msgData.append(" ").append(cursor.getColumnName(idx)).append(":").append(cursor.getString(idx));
+                        }
 
-                    Matcher matcher = pattern.matcher(msgData.toString());
-                    if (matcher.find()) {
-                        BonusData bonusData = new BonusData();
-                        bonusData.setCardNumber(matcher.group(1));
-                        bonusData.setBonusAmount(Float.parseFloat(matcher.group(2)));
-                        bonusData.setIssueDate(matcher.group(3));
-//                        Log.d(TAG, "readSms: " + bonusData);
-                        allBonuses.add(bonusData);
-                    }
+                        Matcher matcher = pattern.matcher(msgData.toString());
+                        if (matcher.find()) {
+                            BonusData bonusData = new BonusData();
+                            bonusData.setCardNumber(matcher.group(1));
+                            bonusData.setBonusAmount(Float.parseFloat(matcher.group(2)));
+                            bonusData.setIssueDate(matcher.group(3));
+                            //                        Log.d(TAG, "readSms: " + bonusData);
+                            allBonuses.add(bonusData);
+                        }
 
-                } while (cursor.moveToNext());
+                    } while (cursor.moveToNext());
+                }
+                cursor.close();
             }
-            cursor.close();
         } else {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
                 Log.d(TAG, "readSms: No perm requesting");
